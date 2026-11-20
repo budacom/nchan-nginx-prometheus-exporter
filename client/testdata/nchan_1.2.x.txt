@@ -1,0 +1,14 @@
+total published messages: 123
+stored messages: 54353
+shared memory used: 12K
+shared memory limit: 131072K
+channels: 34
+subscribers: 5434535
+redis pending commands: 48
+redis connected servers: 65
+total interprocess alerts received: 43
+interprocess alerts in transit: 654
+interprocess queued alerts: 765
+total interprocess send delay: 534
+total interprocess receive delay: 46
+nchan version: 1.1.5
