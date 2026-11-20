@@ -1,0 +1,16 @@
+total published messages: 0
+stored messages: 0
+shared memory used: 16K
+shared memory limit: 131072K
+channels: 0
+subscribers: 0
+redis pending commands: 0
+redis connected servers: 0
+redis unhealthy upstreams: 0
+total redis commands sent: 0
+total interprocess alerts received: 0
+interprocess alerts in transit: 0
+interprocess queued alerts: 0
+total interprocess send delay: 0
+total interprocess receive delay: 0
+nchan version: 1.3.9

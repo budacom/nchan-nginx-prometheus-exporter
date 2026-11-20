@@ -1,0 +1,82 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Release
+
+on:
+  release:
+    types:
+      - published
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  REGISTRY: us-east1-docker.pkg.dev
+  IMAGE: us-east1-docker.pkg.dev/ops-support-191021/platform/nchan-prometheus-exporter
+
+jobs:
+  build_image:
+    name: Build and push image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_GITHUB_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_IMAGE_PUSHER_SA }}
+
+      - name: Log in to Artifact Registry
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build and push
+        id: build_image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ github.event.release.tag_name }}
+            REVISION=${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ github.event.release.tag_name }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image summary
+        shell: bash
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          DIGEST: ${{ steps.build_image.outputs.digest }}
+          FQIN: ${{ env.IMAGE }}
+        run: |
+          echo "## nchan-prometheus-exporter release image" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag | \`${TAG}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Digest | \`${DIGEST}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| FQIN | \`${FQIN}@${DIGEST}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version tag | \`${FQIN}:${TAG}\` |" >> "$GITHUB_STEP_SUMMARY"

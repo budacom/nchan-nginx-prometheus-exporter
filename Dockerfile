@@ -1,14 +1,16 @@
-FROM golang:1.11 as builder
-ARG VERSION
-ARG GIT_COMMIT
-WORKDIR /go/src/github.com/platanus/nchan-prometheus-exporter
-COPY *.go ./
-COPY vendor ./vendor
-COPY collector ./collector
-COPY nginxClient ./nginxClient
-COPY nchanClient ./nchanClient
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags "-X main.version=${VERSION} -X main.gitCommit=${GIT_COMMIT}" -o exporter .
+FROM golang:1.26.11-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ARG VERSION=dev
+ARG REVISION=unknown
+RUN CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w -X github.com/prometheus/common/version.Version=${VERSION} -X github.com/prometheus/common/version.Revision=${REVISION}" \
+    -o /nchan-prometheus-exporter .
 
-FROM alpine:latest
-COPY --from=builder /go/src/github.com/platanus/nchan-prometheus-exporter/exporter /usr/bin/
-ENTRYPOINT [ "/usr/bin/exporter" ]
+FROM alpine:3.22
+COPY --from=build /nchan-prometheus-exporter /usr/bin/nchan-prometheus-exporter
+USER 65534:65534
+EXPOSE 9113
+ENTRYPOINT ["/usr/bin/nchan-prometheus-exporter"]
